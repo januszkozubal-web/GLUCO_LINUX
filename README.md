@@ -1,6 +1,7 @@
 # Monitor Boost (Juggluco Commander)
 
-Lekka aplikacja desktopowa w Pythonie (`tkinter`) do monitorowania glukozy z endpointu Juggluco/Nightscout (`/sgv.json?count=1`) w sieci lokalnej.
+Aplikacja desktopowa w Pythonie (`tkinter`) do monitorowania glukozy z 
+Juggluco/Nightscout (`/sgv.json?count=1`) w sieci lokalnej.
 
 ## Co robi
 
@@ -47,25 +48,7 @@ Lub przez skrypt:
 bash start_monitor.sh
 ```
 
-## Uwaga medyczna
+## Uwaga - wykluczenie jakiejkolwiek odpowiedzialności 
 
-To narzedzie ma charakter pomocniczy i informacyjny. Nie stanowi wyrobu medycznego ani porady medycznej. Decyzje terapeutyczne podejmuj zgodnie z zaleceniami lekarza i na podstawie certyfikowanych urzadzen.
+To narzedzie ma charakter pomocniczy i informacyjny - to tylko ZABAWKA. Nie stanowi wyrobu medycznego ani porady medycznej. Decyzje terapeutyczne podejmuj zgodnie z zaleceniami lekarza i na podstawie certyfikowanych urzadzen.
 
-## Publikacja na GitHub
-
-W katalogu projektu:
-
-```bash
-git init
-git add .
-git commit -m "Prepare Monitor Boost for GitHub publication"
-gh repo create monitor-boost --public --source=. --remote=origin --push
-```
-
-Jesli nie masz `gh`, utworz repo recznie na GitHub i potem:
-
-```bash
-git remote add origin https://github.com/<twoj_login>/monitor-boost.git
-git branch -M main
-git push -u origin main
-```
