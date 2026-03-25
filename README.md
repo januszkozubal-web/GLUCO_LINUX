@@ -1,7 +1,7 @@
 # Monitor Boost (Juggluco Commander)
 
 Aplikacja desktopowa w Pythonie (`tkinter`) do monitorowania glukozy z 
-Juggluco/Nightscout (`/sgv.json?count=1`) w sieci lokalnej.
+Juggluco (`/sgv.json?count=1`) w sieci lokalnej.
 
 ## Co robi
 
