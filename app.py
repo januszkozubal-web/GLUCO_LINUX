@@ -33,6 +33,18 @@ from backend import StreamlitGlucoseMonitor
 
 MIN_POLL_SEC = 9.0
 
+
+def _is_streamlit_community_cloud() -> bool:
+    """Host *.streamlit.app — serwer w chmurze nie widzi LAN (192.168.x)."""
+    if not hasattr(st, "context"):
+        return False
+    try:
+        h = (st.context.headers.get("Host") or "").lower()
+        return ".streamlit.app" in h
+    except Exception:
+        return False
+
+
 st.set_page_config(
     page_title="Juggluco — Streamlit",
     page_icon="📈",
@@ -58,6 +70,15 @@ if "last_tick_ts" not in st.session_state:
     st.session_state.last_tick_ts = 0.0
 if "snapshot" not in st.session_state:
     st.session_state.snapshot = None
+
+if _is_streamlit_community_cloud():
+    st.warning(
+        "**Streamlit Cloud** — ten serwer **nie ma dostępu** do Twojej sieci domowej. "
+        "Połączenie z telefonem pod adresem `192.168.x.x` działa tylko **lokalnie** "
+        "(ten sam router / Wi‑Fi). Uruchom aplikację na komputerze w domu: "
+        "`streamlit run app.py` z katalogu `streamlit_app`, albo użyj VPN/tunelu, "
+        "jeśli naprawdę potrzebujesz zdalnego dostępu."
+    )
 
 S = load_settings(SETTINGS_PATH)
 
@@ -246,5 +267,7 @@ Panele `/x/curve` itd.: domyślnie to samo co w docs — **HTTP** na `Port`. Ust
 
 **Ograniczenia względem tkinter:** brak dźwięku/beepów TTS z desktopu; alarm to komunikat na stronie.  
 Odświeżanie co ok. 10 s (automatycznie) lub przycisk „Odśwież teraz”.
+
+**Streamlit Cloud:** hosting w internecie **nie widzi** adresów LAN — do Juggluco używaj tej aplikacji **lokalnie** (albo VPN z dostępem do domu).
 """
     )
