@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
+# Uruchom z katalogu streamlit_app:  ./start_streamlit.sh
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-if [[ -f ../.venv/bin/activate ]]; then
-  # shellcheck source=/dev/null
-  source ../.venv/bin/activate
-elif [[ -f .venv/bin/activate ]]; then
-  # shellcheck source=/dev/null
-  source .venv/bin/activate
+PYTHON="python3"
+if [[ -x ../.venv/bin/python ]]; then
+  PYTHON="../.venv/bin/python"
+elif [[ -x .venv/bin/python ]]; then
+  PYTHON=".venv/bin/python"
 fi
 
-exec streamlit run app.py --server.address "${STREAMLIT_ADDRESS:-127.0.0.1}" --server.port "${STREAMLIT_PORT:-8501}"
+# Zawsze moduł streamlit z wybranego Pythona (działa gdy brak `streamlit` w PATH)
+exec "$PYTHON" -m streamlit run app.py \
+  --server.address "${STREAMLIT_ADDRESS:-127.0.0.1}" \
+  --server.port "${STREAMLIT_PORT:-8501}"

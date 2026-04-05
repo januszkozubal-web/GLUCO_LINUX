@@ -26,6 +26,7 @@ from config_loader import (
 
 SETTINGS = load_settings(SETTINGS_PATH)
 PORT = SETTINGS["port"]
+SSL_PORT = SETTINGS["ssl_port"]
 SUBNET_PREFIX = SETTINGS["subnet_prefix"]
 
 
@@ -569,6 +570,7 @@ class StreamlitGlucoseMonitor:
             "status": f"Brak kontaktu z {self.current_ip} (skan nie znalazł telefonu)",
             "ip": self.current_ip,
             "port": PORT,
+            "ssl_port": SSL_PORT,
             "val": None,
             "arrow": "",
             "delta_text": "",
@@ -630,6 +632,7 @@ class StreamlitGlucoseMonitor:
             "status": f"Połączono: {self.current_ip} · profil: {profile['name']}",
             "ip": self.current_ip,
             "port": PORT,
+            "ssl_port": SSL_PORT,
             "val": val,
             "arrow": arrow,
             "delta_text": delta_text,

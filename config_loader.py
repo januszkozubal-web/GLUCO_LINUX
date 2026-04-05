@@ -18,6 +18,7 @@ def load_settings(path: str) -> Dict[str, Any]:
         "NETWORK": {
             "IP": "192.168.1.100",
             "Port": "17580",
+            "SSLPort": "17581",
             "SubnetPrefix": "192.168.1.",
         },
         "ALARM": {
@@ -73,6 +74,7 @@ def load_settings(path: str) -> Dict[str, Any]:
     return {
         "default_ip": config.get("NETWORK", "IP", fallback=defaults["NETWORK"]["IP"]),
         "port": config.getint("NETWORK", "Port", fallback=17580),
+        "ssl_port": config.getint("NETWORK", "SSLPort", fallback=17581),
         "subnet_prefix": config.get("NETWORK", "SubnetPrefix", fallback=defaults["NETWORK"]["SubnetPrefix"]),
         "alarm_hiper": config.getint("ALARM", "Hiper", fallback=180),
         "alarm_hipo": config.getint("ALARM", "Hipo", fallback=70),
