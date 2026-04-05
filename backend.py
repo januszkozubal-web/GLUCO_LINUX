@@ -25,6 +25,7 @@ from config_loader import (
 )
 
 SETTINGS = load_settings(SETTINGS_PATH)
+# Tylko startowy odczyt — w Streamlit moduł żyje długo; port/IP z INI odświeża _refresh_network_settings()
 PORT = SETTINGS["port"]
 SSL_PORT = SETTINGS["ssl_port"]
 SUBNET_PREFIX = SETTINGS["subnet_prefix"]
@@ -54,11 +55,63 @@ class StreamlitGlucoseMonitor:
 
         self._load_history_csv(days=21)
         self._load_forecast_state()
+        self._last_ini_ip: Optional[str] = None
+        self._port = int(SETTINGS["port"])
+        self._subnet_prefix = SETTINGS["subnet_prefix"]
+        self._ssl_port = int(SETTINGS["ssl_port"])
+        # Ręczne nadpisania z UI Streamlit (sesja) — mają pierwszeństwo nad odczytem z INI
+        self._manual_ip: Optional[str] = None
+        self._manual_subnet: Optional[str] = None
+        self._manual_port: Optional[int] = None
+
+    def set_manual_network(
+        self,
+        ip: Optional[str] = None,
+        subnet: Optional[str] = None,
+        port: Optional[int] = None,
+    ) -> None:
+        """Ustawia nadpisania na bieżącą sesję (np. IP 192.168.2.116 gdy INI ma jeszcze .1.)."""
+        self._manual_ip = (ip or "").strip() or None
+        self._manual_subnet = (subnet or "").strip() or None
+        self._manual_port = port
+
+    def clear_manual_network(self) -> None:
+        self._manual_ip = None
+        self._manual_subnet = None
+        self._manual_port = None
+
+    def has_manual_network_override(self) -> bool:
+        return (
+            self._manual_ip is not None
+            or self._manual_subnet is not None
+            or self._manual_port is not None
+        )
+
+    def _refresh_network_settings(self) -> None:
+        """Za każdym tickiem — jak nowy start monitor_boost.py (INI może się zmienić bez restartu Streamlit)."""
+        s = load_settings(SETTINGS_PATH)
+        self._port = int(s["port"])
+        self._subnet_prefix = s["subnet_prefix"]
+        self._ssl_port = int(s["ssl_port"])
+        ini_ip = s["default_ip"]
+
+        if self._manual_port is not None:
+            self._port = int(self._manual_port)
+        if self._manual_subnet is not None:
+            self._subnet_prefix = self._manual_subnet
+
+        if self._manual_ip is not None:
+            self.current_ip = self._manual_ip
+            self._last_ini_ip = ini_ip
+        else:
+            if ini_ip != self._last_ini_ip:
+                self.current_ip = ini_ip
+                self._last_ini_ip = ini_ip
 
     # --- sieć ---
     def check_ip(self, ip_suffix: int) -> Optional[str]:
-        target = f"{SUBNET_PREFIX}{ip_suffix}"
-        url = f"http://{target}:{PORT}/sgv.json?count=1"
+        target = f"{self._subnet_prefix}{ip_suffix}"
+        url = f"http://{target}:{self._port}/sgv.json?count=1"
         try:
             resp = requests.get(url, timeout=0.4)
             if resp.status_code == 200:
@@ -81,7 +134,7 @@ class StreamlitGlucoseMonitor:
 
     def get_glucose_data(self, ip: str) -> Tuple[Optional[int], Optional[str]]:
         try:
-            url = f"http://{ip}:{PORT}/sgv.json?count=1"
+            url = f"http://{ip}:{self._port}/sgv.json?count=1"
             resp = requests.get(url, timeout=3)
             if resp.status_code == 200:
                 data = resp.json()
@@ -547,6 +600,7 @@ class StreamlitGlucoseMonitor:
 
     def tick(self) -> Dict[str, Any]:
         """Jeden krok: pobierz dane lub skanuj sieć. Zwraca słownik do UI."""
+        self._refresh_network_settings()
         val, direction = self.get_glucose_data(self.current_ip)
         if val is not None:
             self._disconnect_since = None
@@ -569,8 +623,8 @@ class StreamlitGlucoseMonitor:
             "ok": False,
             "status": f"Brak kontaktu z {self.current_ip} (skan nie znalazł telefonu)",
             "ip": self.current_ip,
-            "port": PORT,
-            "ssl_port": SSL_PORT,
+            "port": self._port,
+            "ssl_port": self._ssl_port,
             "val": None,
             "arrow": "",
             "delta_text": "",
@@ -631,8 +685,8 @@ class StreamlitGlucoseMonitor:
             "ok": True,
             "status": f"Połączono: {self.current_ip} · profil: {profile['name']}",
             "ip": self.current_ip,
-            "port": PORT,
-            "ssl_port": SSL_PORT,
+            "port": self._port,
+            "ssl_port": self._ssl_port,
             "val": val,
             "arrow": arrow,
             "delta_text": delta_text,
@@ -646,6 +700,7 @@ class StreamlitGlucoseMonitor:
 
     def force_rescan(self) -> Dict[str, Any]:
         """Ręczne skanowanie (przycisk)."""
+        self._refresh_network_settings()
         found = self.scan_network()
         if found:
             self.current_ip = found

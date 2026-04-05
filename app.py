@@ -28,7 +28,8 @@ try:
 except ImportError:
     _HAS_AUTOREFRESH = False
 
-from backend import PORT, SETTINGS, SSL_PORT, StreamlitGlucoseMonitor
+from config_loader import SETTINGS_PATH, load_settings, save_network_to_ini
+from backend import StreamlitGlucoseMonitor
 
 MIN_POLL_SEC = 9.0
 
@@ -36,7 +37,7 @@ st.set_page_config(
     page_title="Juggluco — Streamlit",
     page_icon="📈",
     layout="centered",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 st.markdown(
@@ -57,6 +58,72 @@ if "last_tick_ts" not in st.session_state:
     st.session_state.last_tick_ts = 0.0
 if "snapshot" not in st.session_state:
     st.session_state.snapshot = None
+
+S = load_settings(SETTINGS_PATH)
+
+with st.sidebar:
+    st.subheader("Sieć (ręcznie)")
+    st.caption(
+        "Desktop mógł już **zapamiętać** IP (np. 192.168.2.116), a tu widnieje stare **settings.ini** "
+        "(np. 192.168.1. + zły skan). Ustaw IP i **SubnetPrefix** jak w sieci telefonu."
+    )
+    fld_ip = st.text_input("IP telefonu", value=S["default_ip"], key="net_fld_ip")
+    fld_sub = st.text_input(
+        "SubnetPrefix (skan .1–.254)",
+        value=S["subnet_prefix"],
+        key="net_fld_sub",
+        help="Musi kończyć się kropką, np. 192.168.2.",
+    )
+    fld_port = st.number_input(
+        "Port HTTP (sgv.json)",
+        min_value=1,
+        max_value=65535,
+        value=int(S["port"]),
+        step=1,
+        key="net_fld_port",
+    )
+    fld_ssl = st.number_input(
+        "Port SSL (panel HTTPS)",
+        min_value=1,
+        max_value=65535,
+        value=int(S["ssl_port"]),
+        step=1,
+        key="net_fld_ssl",
+    )
+    fld_https = st.checkbox("HTTPS dla paneli /x/…", value=S["https_for_webui"], key="net_fld_https")
+
+    if st.button("Zastosuj teraz (tylko sesja)", type="primary", use_container_width=True):
+        st.session_state.mon.set_manual_network(
+            ip=fld_ip.strip() or None,
+            subnet=fld_sub.strip() or None,
+            port=int(fld_port),
+        )
+        st.session_state.force_poll = True
+        st.rerun()
+
+    if st.button("Zapisz do settings.ini + zastosuj", use_container_width=True):
+        save_network_to_ini(
+            SETTINGS_PATH,
+            ip=fld_ip.strip(),
+            subnet_prefix=fld_sub.strip(),
+            port=int(fld_port),
+            ssl_port=int(fld_ssl),
+            https_for_webui=bool(fld_https),
+        )
+        st.session_state.mon.clear_manual_network()
+        st.session_state.force_poll = True
+        st.rerun()
+
+    if st.button("Wyczyść nadpisania sesji", use_container_width=True):
+        st.session_state.mon.clear_manual_network()
+        st.rerun()
+
+    man = st.session_state.mon
+    st.caption(
+        f"**Stan:** IP celu `{man.current_ip}` · skan `{getattr(man, '_subnet_prefix', '—')}` · "
+        f"nadpisania: "
+        f"{'tak' if man.has_manual_network_override() else 'nie'}"
+    )
 
 # Odświeżenie co ~10 s (opcjonalnie — bez pakietu: tylko przycisk „Odśwież teraz”)
 if _HAS_AUTOREFRESH:
@@ -93,10 +160,12 @@ if need_poll:
 
 snap = st.session_state.snapshot or {}
 
+S = load_settings(SETTINGS_PATH)
 st.title("Juggluco Commander — Streamlit")
+_ui = f"HTTPS paneli **:{S['ssl_port']}**" if S["https_for_webui"] else f"HTTP paneli **:{S['port']}** (jak w Juggluco docs)"
 st.caption(
-    f"Konfiguracja: `../settings.ini` · HTTP (API) **:{PORT}** · HTTPS (WWW) **:{SSL_PORT}** · "
-    f"podsieć `{SETTINGS['subnet_prefix']}` · IP: **{snap.get('ip', '—')}**"
+    f"Konfiguracja: `../settings.ini` · API **http://…:{S['port']}** · {_ui} · "
+    f"podsieć `{S['subnet_prefix']}` · IP: **{snap.get('ip', '—')}**"
 )
 
 if snap.get("ok") and snap.get("val") is not None:
@@ -139,9 +208,12 @@ if st.button("Kasuj alarm (wycisz mruganie — jak w desktop)", disabled=not sna
     st.rerun()
 
 st.divider()
-st.subheader("Panele Juggluco (w przeglądarce, HTTPS)")
+st.subheader("Panele Juggluco (w przeglądarce)")
 ip = snap.get("ip") or st.session_state.mon.current_ip
-base = f"https://{ip}:{SSL_PORT}"
+if S["https_for_webui"]:
+    base = f"https://{ip}:{S['ssl_port']}"
+else:
+    base = f"http://{ip}:{S['port']}"
 endpoints = [
     ("Wykres (Curve)", "/x/curve"),
     ("Raport AGP", "/x/report"),
@@ -169,8 +241,8 @@ with st.expander("Informacja"):
 Ta wersja działa w przeglądarce (Streamlit), współdzieli z aplikacją desktop  
 `glucose_history.csv` i `forecast_state.json` w katalogu **nad** `streamlit_app`.
 
-Odczyt glukozy: **HTTP** na porcie z `Port` w `settings.ini` (domyślnie 17580).  
-Linki do paneli Juggluco: **HTTPS** na `SSLPort` (domyślnie 17581).
+Odczyt glukozy: zawsze **HTTP** `http://IP:Port/sgv.json` (jak [dokumentacja Juggluco](https://www.juggluco.nl/Juggluco/webserver.html)).  
+Panele `/x/curve` itd.: domyślnie to samo co w docs — **HTTP** na `Port`. Ustaw `HTTPSForWebUI = true` w `settings.ini` tylko gdy w telefonie włączyłeś SSL i chcesz `https://IP:SSLPort`.
 
 **Ograniczenia względem tkinter:** brak dźwięku/beepów TTS z desktopu; alarm to komunikat na stronie.  
 Odświeżanie co ok. 10 s (automatycznie) lub przycisk „Odśwież teraz”.

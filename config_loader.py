@@ -13,12 +13,37 @@ HISTORY_CSV_PATH = os.path.join(_PARENT, "..", "glucose_history.csv")
 FORECAST_STATE_PATH = os.path.join(_PARENT, "..", "forecast_state.json")
 
 
+def save_network_to_ini(
+    path: str,
+    *,
+    ip: str,
+    subnet_prefix: str,
+    port: int,
+    ssl_port: int,
+    https_for_webui: bool,
+) -> None:
+    """Zapisuje wyłącznie sekcję [NETWORK] (reszta pliku bez zmian)."""
+    load_settings(path)
+    cfg = configparser.ConfigParser()
+    cfg.read(path)
+    if not cfg.has_section("NETWORK"):
+        cfg.add_section("NETWORK")
+    cfg.set("NETWORK", "IP", ip.strip())
+    cfg.set("NETWORK", "SubnetPrefix", subnet_prefix.strip())
+    cfg.set("NETWORK", "Port", str(int(port)))
+    cfg.set("NETWORK", "SSLPort", str(int(ssl_port)))
+    cfg.set("NETWORK", "HTTPSForWebUI", "true" if https_for_webui else "false")
+    with open(path, "w", encoding="utf-8") as f:
+        cfg.write(f)
+
+
 def load_settings(path: str) -> Dict[str, Any]:
     defaults = {
         "NETWORK": {
             "IP": "192.168.1.100",
             "Port": "17580",
             "SSLPort": "17581",
+            "HTTPSForWebUI": "false",
             "SubnetPrefix": "192.168.1.",
         },
         "ALARM": {
@@ -75,6 +100,7 @@ def load_settings(path: str) -> Dict[str, Any]:
         "default_ip": config.get("NETWORK", "IP", fallback=defaults["NETWORK"]["IP"]),
         "port": config.getint("NETWORK", "Port", fallback=17580),
         "ssl_port": config.getint("NETWORK", "SSLPort", fallback=17581),
+        "https_for_webui": config.getboolean("NETWORK", "HTTPSForWebUI", fallback=False),
         "subnet_prefix": config.get("NETWORK", "SubnetPrefix", fallback=defaults["NETWORK"]["SubnetPrefix"]),
         "alarm_hiper": config.getint("ALARM", "Hiper", fallback=180),
         "alarm_hipo": config.getint("ALARM", "Hipo", fallback=70),
